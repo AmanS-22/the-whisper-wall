@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>The Whisper Wall</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+  <div class="wrap">
+    <h1>The Whisper Wall</h1>
+    <div class="sub">Write anything you like. No login. Max <b>300</b> characters.</div>
+
+    <div class="card">
+      <textarea id="note" placeholder="Write your note..."></textarea>
+      <div class="row">
+        <div id="counter" class="muted count ok">0/300</div>
+        <div class="muted" id="error" style="margin-left:auto;"></div>
+        <button id="postBtn">Post</button>
+      </div>
+    </div>
+
+    <h2 class="sub" style="margin-top: 20px;">Recent Notes</h2>
+    <div class="list" id="notes"></div>
+  </div>
+
+  <script src="/newnote.js"></script>
+</body>
+</html>

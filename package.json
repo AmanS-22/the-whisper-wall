@@ -1,0 +1,11 @@
+{
+  "name": "whisper-wall",
+  "version": "1.0.0",
+  "description": "Anonymous note sharing app",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0"
+  },
+  "devDependencies": {
+    "@vercel/node": "^2.9.5"
+  }
+}
