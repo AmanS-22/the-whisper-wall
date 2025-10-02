@@ -9,7 +9,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import Cover from "./imports/Cover";
-import { fetchNotes, createNote, type Note as DbNote } from './services/notes'
+import { fetchNotes, createNote, subscribeToNotes, type Note as DbNote, type NoteChange } from './services/notes'
 
 // Typing Animation Component - Optimized and Mobile Responsive
 function TypingAnimation() {
@@ -534,6 +534,28 @@ export default function App() {
       }
     })()
 
+    // Realtime subscription for new notes
+    const unsubscribe = subscribeToNotes((change: NoteChange) => {
+      setRemoteNotes((prev) => {
+        const list = prev ?? []
+        if (change.type === 'INSERT') {
+          const n = change.note
+          if (n.id && list.some(x => x.id === n.id)) return list
+          return [n, ...list]
+        }
+        if (change.type === 'UPDATE') {
+          const n = change.note
+          return list.map((x) => (x.id === n.id ? n : x))
+        }
+        if (change.type === 'DELETE') {
+          const id = change.id
+          if (!id) return list
+          return list.filter((x) => x.id !== id)
+        }
+        return list
+      })
+    })
+
     const handleScroll = () => {
       // Hide scroll indicator when user scrolls down
       if (window.scrollY > 100) {
@@ -545,7 +567,10 @@ export default function App() {
 
     window.addEventListener("scroll", handleScroll);
     return () =>
-      window.removeEventListener("scroll", handleScroll);
+      {
+        window.removeEventListener("scroll", handleScroll);
+        unsubscribe();
+      }
   }, []);
 
   // Prevent background (body) scroll when any overlay is open
@@ -605,7 +630,7 @@ export default function App() {
     <LayoutGroup>
     <div
       ref={containerRef}
-      className="min-h-screen bg-[#2d2e2e]"
+      className="relative min-h-screen bg-[#2d2e2e]"
     >
       {/* Hero Section with imported Cover and Parallax */}
       <section className="h-screen relative overflow-hidden">
