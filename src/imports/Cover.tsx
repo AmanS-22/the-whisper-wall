@@ -3,12 +3,12 @@ import { motion } from 'framer-motion';
 function Frame41124522() {
   return (
     <div
-      className="absolute top-1/2 left-0 right-0 -translate-y-1/2 px-8 md:px-16 pointer-events-none z-10"
+      className="absolute top-1/2 left-0 right-0 -translate-y-1/2 px-4 sm:px-8 md:px-16 pointer-events-none z-10"
       aria-label="Whisper Wall Title"
     >
       <h1
-        className="font-['Inter:Black',_sans-serif] font-black text-[#f8d254] leading-none tracking-tight text-[80px] sm:text-[110px] md:text-[140px] lg:text-[170px] xl:text-[190px] whitespace-nowrap drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
-        style={{ lineHeight: 0.9 }}
+        className="font-['Inter:Black',_sans-serif] font-black text-[#f8d254] leading-none tracking-tight text-center whitespace-normal sm:whitespace-nowrap drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] px-4 sm:px-0 mx-auto"
+        style={{ lineHeight: 0.9, fontSize: 'clamp(32px,11vw,190px)', maxWidth: '100vw' }}
       >
         Whisper Wall
       </h1>
@@ -18,17 +18,17 @@ function Frame41124522() {
 
 // Static Background Sticky Note Component - No interactions
 type StickyPos = { top?: string; right?: string; bottom?: string; left?: string };
-function BackgroundStickyNote({ text, position, rotation, scale = 1, delay = 0 }: { text: string; position: StickyPos; rotation: number; scale?: number; delay?: number }) {
+function BackgroundStickyNote({ text, position, rotation, scale = 1, delay = 0, responsiveClassName, opacity = 0.7 }: { text: string; position: StickyPos; rotation: number; scale?: number; delay?: number; responsiveClassName?: string; opacity?: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: scale, rotate: rotation }}
-      animate={{ opacity: 0.7, scale: scale, rotate: rotation }}
+      animate={{ opacity: opacity, scale: scale, rotate: rotation }}
       transition={{
         duration: 0.3,
         delay: delay,
         ease: "easeOut"
       }}
-      className="absolute z-[5] pointer-events-none"
+      className={`absolute z-[5] pointer-events-none ${responsiveClassName ?? ''}`}
       style={position}
     >
       <div 
@@ -102,16 +102,56 @@ function MarkedBackgroundStickyNotes() {
     }
   ];
 
+  // Mobile-optimized set: fewer notes, smaller scales, positioned away from the center
+  const mobileNotes = [
+    {
+      text: "Sometimes the bravest thing you can do is speak your truth when no one is listening...",
+      position: { top: '12%', left: '4%' },
+      rotation: -6,
+      scale: 0.75,
+      delay: 0.2
+    },
+    {
+      text: "Identity can be a prison. Here, my thoughts fly free without chains...",
+      position: { bottom: '16%', right: '6%' },
+      rotation: -4,
+      scale: 0.8,
+      delay: 0.5
+    },
+    {
+      text: "Raw humanity meets digital space, creating connections more authentic than profiles...",
+      position: { top: '8%', right: '8%' },
+      rotation: 4,
+      scale: 0.7,
+      delay: 0.7
+    }
+  ];
+
   return (
     <>
+      {/* Desktop and up */}
       {markedNotes.map((note, index) => (
         <BackgroundStickyNote
-          key={index}
+          key={`d-${index}`}
           text={note.text}
           position={note.position}
           rotation={note.rotation}
           scale={note.scale}
           delay={note.delay}
+          responsiveClassName="hidden sm:block"
+        />
+      ))}
+      {/* Mobile only */}
+      {mobileNotes.map((note, index) => (
+        <BackgroundStickyNote
+          key={`m-${index}`}
+          text={note.text}
+          position={note.position}
+          rotation={note.rotation}
+          scale={note.scale}
+          delay={note.delay}
+          responsiveClassName="block sm:hidden"
+          opacity={0.55}
         />
       ))}
     </>

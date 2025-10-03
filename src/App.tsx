@@ -24,6 +24,8 @@ function TypingAnimation() {
     "The wall holds your words, not your identity.",
     "A note without a name still has meaning.",
     "Notes are free when no name binds them.",
+    "The message matters, not the messenger.",
+    "Say less of yourself, more of what matters.",
   ];
 
   const [currentText, setCurrentText] = useState("");
@@ -67,6 +69,21 @@ function TypingAnimation() {
   const titleRef = useRef<HTMLElement | null>(null);
   const [yPos, setYPos] = useState<number | null>(null);
   const [xPos, setXPos] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Track mobile breakpoint for responsive positioning/wrapping
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const update = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile('matches' in e ? e.matches : (e as MediaQueryList).matches);
+    update(mq);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    if (mq.addEventListener) mq.addEventListener('change', handler);
+    else mq.addListener(handler);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', handler);
+      else mq.removeListener(handler);
+    };
+  }, []);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -99,12 +116,13 @@ function TypingAnimation() {
     <div
       className="absolute pointer-events-none z-10"
       style={{
-        top: yPos ?? "60%",
-        left: xPos ?? "52%",
-        transform: "translateX(-10px)",
+        top: yPos ?? '60%',
+        left: (isMobile ? '50%' : (xPos ?? '52%')) as any,
+        transform: isMobile ? 'translateX(-50%)' : 'translateX(-10px)',
+        maxWidth: isMobile ? '92vw' : undefined,
       }}
     >
-      <div className="font-['Inter:Semi_Bold',_sans-serif] font-semibold text-[#f8d254] text-2xl md:text-3xl lg:text-4xl xl:text-[46px] tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] whitespace-nowrap">
+      <div className="font-['Inter:Semi_Bold',_sans-serif] font-semibold text-[#f8d254] text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-[46px] tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] text-center whitespace-normal break-words">
         <span>{currentText}</span>
         <span className="inline-block w-[1ch] animate-blink">|</span>
       </div>
