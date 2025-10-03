@@ -7,12 +7,14 @@ import {
   useInView,
   LayoutGroup,
   AnimatePresence,
+  useReducedMotion,
 } from "framer-motion";
+// Virtualization removed for stability
 import Cover from "./imports/Cover";
 import { fetchNotes, createNote, subscribeToNotes, type Note as DbNote, type NoteChange } from './services/notes'
 
 // Typing Animation Component - Optimized and Mobile Responsive
-function TypingAnimation() {
+function TypingAnimation({ paused = false }: { paused?: boolean }) {
   const phrases = [
     "Not every story needs a storyteller.",
     "Not every truth needs a face.",
@@ -34,6 +36,7 @@ function TypingAnimation() {
   const currentPhrase = phrases[phraseIndex];
 
   useEffect(() => {
+    if (paused) return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const animate = () => {
@@ -64,7 +67,7 @@ function TypingAnimation() {
     return () => {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     };
-  }, [currentText, isDeleting, phraseIndex, currentPhrase]);
+  }, [currentText, isDeleting, phraseIndex, currentPhrase, paused]);
 
   const titleRef = useRef<HTMLElement | null>(null);
   const [yPos, setYPos] = useState<number | null>(null);
@@ -86,31 +89,41 @@ function TypingAnimation() {
   }, []);
 
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const el = document.querySelector('[aria-label="Whisper Wall Title"] h1') as HTMLElement | null;
-      if (el) {
-        titleRef.current = el;
-        const rect = el.getBoundingClientRect();
-        setYPos(rect.top + rect.height + Math.min(50, rect.height * 0.18));
-        setXPos(rect.left + rect.width * 0.52);
-        observer.disconnect();
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    const handleResize = () => {
-      if (titleRef.current) {
-        const r = titleRef.current.getBoundingClientRect();
-        setYPos(r.top + r.height + Math.min(50, r.height * 0.18));
-        setXPos(r.left + r.width * 0.52);
+    let rafId: number | null = null;
+    const ensureTitle = () => {
+      if (!titleRef.current) {
+        titleRef.current = document.querySelector('[aria-label="Whisper Wall Title"] h1') as HTMLElement | null;
       }
     };
-    window.addEventListener("resize", handleResize);
+    const recalc = () => {
+      if (paused) return;
+      ensureTitle();
+      const el = titleRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setYPos(r.top + r.height + Math.min(50, r.height * 0.18));
+      setXPos(r.left + r.width * 0.52);
+    };
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        recalc();
+      });
+    };
+    const onResize = () => {
+      recalc();
+    };
+    // Initial calc
+    recalc();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
     return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", handleResize);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', onScroll as any);
+      window.removeEventListener('resize', onResize);
     };
-  }, []);
+  }, [paused]);
 
   return (
     <div
@@ -197,7 +210,6 @@ function StaticNoteCard({ delay = 0, note, onClick, noteId, size = 'sm' }: { del
 }
 
 
-
 // Morph viewer for notes using shared layoutId with the card
 function NoteMorphViewer({ note, layoutId, onClose }: { note: Note | null; layoutId: string | null; onClose: () => void }) {
   if (!note || !layoutId) return null;
@@ -206,8 +218,9 @@ function NoteMorphViewer({ note, layoutId, onClose }: { note: Note | null; layou
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[350]"
+  className="fixed inset-0 bg-black/80 z-[350]"
       onClick={onClose}
+      style={{ pointerEvents: 'auto' }}
     >
       <motion.div
         layoutId={layoutId}
@@ -337,16 +350,17 @@ function AnimatedCard({ children, delay = 0 }: { children: React.ReactNode; dela
     once: true,
     margin: "-100px",
   });
+  const reduce = useReducedMotion();
 
   return (
     <motion.div
       ref={ref}
-      initial={{ y: 60, opacity: 0 }}
+      initial={{ y: reduce ? 0 : 60, opacity: 0 }}
       animate={
-        isInView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }
+        isInView ? { y: 0, opacity: 1 } : { y: reduce ? 0 : 60, opacity: 0 }
       }
       transition={{
-        duration: 0.6,
+        duration: reduce ? 0.2 : 0.6,
         delay: delay,
         ease: "easeOut",
       }}
@@ -413,37 +427,23 @@ function ViewMoreButton({ onClick, hidden }: { onClick: () => void; hidden?: boo
 }
 
 // All Notes morph overlay (similar window like share button)
-function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick }: { open: boolean; onClose: () => void; notes: Note[]; onNoteClick: (n: Note, id: string) => void }) {
+function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScrollTop }: { open: boolean; onClose: () => void; notes: Note[]; onNoteClick: (n: Note, id: string) => void; initialScrollTop: number }) {
   if (!open) return null;
-  // Render notes in chunks to avoid mounting a large list at once
-  const [visibleCount, setVisibleCount] = useState(() => Math.min(30, notes.length));
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
+  // Virtuoso scroller ref to restore position
+  const scrollerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!open) return;
-    // Reset on open and progressively increase after a brief delay
-    setVisibleCount(Math.min(30, notes.length));
     const t = setTimeout(() => {
-      setVisibleCount((c) => Math.min(Math.max(c, 60), notes.length));
-    }, 120);
+      if (scrollerRef.current) scrollerRef.current.scrollTop = initialScrollTop;
+    }, 0);
     return () => clearTimeout(t);
-  }, [open, notes.length]);
-
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 200;
-    if (nearBottom) {
-      setVisibleCount((c) => Math.min(c + 30, notes.length));
-    }
-  };
+  }, [initialScrollTop]);
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4"
-      onClick={onClose}
+      style={{ pointerEvents: 'auto' }}
     >
       <motion.div
         layoutId="all-notes-card"
@@ -468,10 +468,9 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick }: { open: boo
             <X size={20} />
           </motion.button>
         </div>
-
-        <div className="flex-1 overflow-y-auto pr-2" ref={scrollRef} onScroll={handleScroll}>
+        <div className="flex-1 overflow-y-auto pr-2 overscroll-contain" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
-            {notes.slice(0, visibleCount).map((note: Note, index: number) => (
+            {notes.map((note: Note, index: number) => (
               <div key={index}>
                 <StaticNoteCard
                   note={note}
@@ -562,6 +561,7 @@ export default function App() {
     [0, 1],
     ["0%", "15%"],
   );
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     // Load notes from Supabase if configured
@@ -613,17 +613,27 @@ export default function App() {
       }
   }, []);
 
-  // Prevent background (body) scroll when any overlay is open
+  // Prevent background scroll when any overlay is open (simple, reliable)
   const anyOverlayOpen = showNoteInterface || showAllNotes || showNoteViewer;
   useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlTouchAction = (html.style as any).touchAction as string | undefined;
     if (anyOverlayOpen) {
-      document.body.style.overflow = 'hidden';
+      html.style.overflow = 'hidden';
+      body.style.overflow = 'hidden';
+      (html.style as any).touchAction = 'none';
     } else {
-      document.body.style.overflow = originalOverflow || '';
+      html.style.overflow = prevHtmlOverflow || '';
+      body.style.overflow = prevBodyOverflow || '';
+      (html.style as any).touchAction = prevHtmlTouchAction || '';
     }
     return () => {
-      document.body.style.overflow = originalOverflow || '';
+      html.style.overflow = prevHtmlOverflow || '';
+      body.style.overflow = prevBodyOverflow || '';
+      (html.style as any).touchAction = prevHtmlTouchAction || '';
     };
   }, [anyOverlayOpen]);
   const handleStartSharing = () => {
@@ -642,6 +652,9 @@ export default function App() {
       });
     }
   };
+
+  // Preserve All Notes scroll position between opens (simple: start at 0)
+  const allNotesScrollTop = 0;
 
   const [activeNoteLayoutId, setActiveNoteLayoutId] = useState<string | null>(null);
   const handleNoteClick = (note: Note, id: string) => {
@@ -675,14 +688,14 @@ export default function App() {
       {/* Hero Section with imported Cover and Parallax */}
       <section className="h-screen relative overflow-hidden">
         <motion.div
-          style={{ y: backgroundY }}
+          style={{ y: reduce ? 0 : backgroundY }}
           className="absolute inset-0"
         >
           <Cover />
         </motion.div>
 
         <div className="relative z-10 h-full">
-          <TypingAnimation />
+          <TypingAnimation paused={anyOverlayOpen} />
         </div>
 
         {/* Scroll Down Indicator */}
@@ -693,10 +706,12 @@ export default function App() {
             transition={{ delay: 1, duration: 0.8 }}
             className="absolute bottom-6 sm:bottom-8 md:bottom-12 left-1/2 transform -translate-x-1/2 z-30"
           >
-            <button
+            <motion.button
               onClick={scrollToContent}
               className="group flex flex-col items-center text-[#f8d254] hover:text-white transition-colors duration-300 min-h-[44px] min-w-[44px] justify-center p-2"
               aria-label="Scroll down to content"
+              whileHover={reduce ? undefined : { y: -2 }}
+              whileTap={reduce ? undefined : { scale: 0.96 }}
             >
               <div className="text-xs sm:text-sm mb-1 sm:mb-2 opacity-80 group-hover:opacity-100 font-medium">
                 Scroll Down
@@ -707,7 +722,7 @@ export default function App() {
                   className="sm:w-6 sm:h-6 md:w-8 md:h-8"
                 />
               </div>
-            </button>
+            </motion.button>
           </motion.div>
         )}
       </section>
@@ -808,15 +823,15 @@ export default function App() {
                   opacity: { duration: 0.2, delay: showNoteInterface ? 0 : 0.2 },
                   scale: { duration: 0.2, delay: showNoteInterface ? 0 : 0.2 },
                 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={reduce ? undefined : { scale: 1.03, y: -1 }}
+                whileTap={reduce ? undefined : { scale: 0.97 }}
                 onClick={handleStartSharing}
                 className="bg-[#f8d254] text-[#2d2e2e] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-sm sm:text-base md:text-lg font-semibold hover:bg-yellow-300 transition-colors duration-300 relative overflow-hidden min-h-[44px] w-full sm:w-auto max-w-xs sm:max-w-none"
                 style={{ pointerEvents: showNoteInterface ? 'none' as const : 'auto' as const }}
               >
                 <motion.span
                   initial={{ y: 0 }}
-                  whileHover={{ y: -2 }}
+                  whileHover={reduce ? undefined : { y: -1 }}
                   transition={{
                     type: "spring",
                     stiffness: 300,
@@ -960,6 +975,7 @@ export default function App() {
             onClose={() => setShowAllNotes(false)}
             notes={allNotes}
             onNoteClick={handleNoteClick}
+            initialScrollTop={allNotesScrollTop}
           />
         )}
       </AnimatePresence>
