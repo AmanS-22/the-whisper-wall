@@ -339,7 +339,7 @@ function AnimatedCard({ children, delay = 0 }: { children: React.ReactNode; dela
 }
 
 // View More button with pulse/ripple + shared layoutId for morph
-function ViewMoreButton({ onClick, hidden, count }: { onClick: () => void; hidden?: boolean; count?: number }) {
+function ViewMoreButton({ onClick, hidden }: { onClick: () => void; hidden?: boolean }) {
   const [ripples, setRipples] = useState<Array<{ id: number }>>([]);
 
   const triggerRipple = () => {
@@ -376,7 +376,7 @@ function ViewMoreButton({ onClick, hidden, count }: { onClick: () => void; hidde
         whileHover={{ y: -2 }}
         transition={{ type: 'spring', stiffness: 300 }}
       >
-        View All Notes{typeof count === 'number' ? ` (${count} total)` : ''}
+        View All Notes
       </motion.span>
 
       {/* Pulse/Ripple */}
@@ -397,12 +397,34 @@ function ViewMoreButton({ onClick, hidden, count }: { onClick: () => void; hidde
 // All Notes morph overlay (similar window like share button)
 function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick }: { open: boolean; onClose: () => void; notes: Note[]; onNoteClick: (n: Note, id: string) => void }) {
   if (!open) return null;
+  // Render notes in chunks to avoid mounting a large list at once
+  const [visibleCount, setVisibleCount] = useState(() => Math.min(30, notes.length));
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    // Reset on open and progressively increase after a brief delay
+    setVisibleCount(Math.min(30, notes.length));
+    const t = setTimeout(() => {
+      setVisibleCount((c) => Math.min(Math.max(c, 60), notes.length));
+    }, 120);
+    return () => clearTimeout(t);
+  }, [open, notes.length]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 200;
+    if (nearBottom) {
+      setVisibleCount((c) => Math.min(c + 30, notes.length));
+    }
+  };
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[300] p-4"
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4"
       onClick={onClose}
     >
       <motion.div
@@ -429,10 +451,10 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick }: { open: boo
           </motion.button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2">
+        <div className="flex-1 overflow-y-auto pr-2" ref={scrollRef} onScroll={handleScroll}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
-            {notes.map((note: Note, index: number) => (
-              <motion.div key={index} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02, duration: 0.22 }}>
+            {notes.slice(0, visibleCount).map((note: Note, index: number) => (
+              <div key={index}>
                 <StaticNoteCard
                   note={note}
                   delay={0}
@@ -440,7 +462,7 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick }: { open: boo
                   onClick={() => onNoteClick(note, `overlay-${index}`)}
                   size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
                 />
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -818,7 +840,7 @@ export default function App() {
               viewport={{ once: true }}
               className="text-center mt-4 sm:mt-6 md:mt-8"
             >
-              <ViewMoreButton hidden={showAllNotes} onClick={() => setShowAllNotes(true)} count={allNotes.length} />
+              <ViewMoreButton hidden={showAllNotes} onClick={() => setShowAllNotes(true)} />
             </motion.div>
           </div>
         </div>
