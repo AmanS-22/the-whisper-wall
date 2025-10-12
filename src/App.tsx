@@ -145,7 +145,7 @@ function TypingAnimation({ paused = false }: { paused?: boolean }) {
 }
 
 // Static Note Card Component - Completely non-interactive
-type Note = { id?: string; quote: string };
+type Note = { id: string; quote: string };
 
 function StaticNoteCard({ delay = 0, note, onClick, noteId, size = 'sm' }: { delay?: number; note: Note; onClick?: () => void; noteId: string; size?: 'sm' | 'lg' }) {
   const ref = useRef(null);
@@ -475,21 +475,21 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
         </div>
   <div className="flex-1 overflow-y-auto pr-2 overscroll-contain no-scrollbar" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="popLayout">
               {notes.map((note: Note, index: number) => (
                 <motion.div
-                  key={note.id ?? `overlay-${index}`}
+                  key={note.id}
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
+                  exit={{ opacity: 0, scale: 0.98, y: -8 }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
                   layout
                 >
                   <StaticNoteCard
                     note={note}
                     delay={0}
-                    noteId={`overlay-${note.id ?? index}`}
-                    onClick={() => onNoteClick(note, `overlay-${note.id ?? index}`)}
+                    noteId={`overlay-${note.id}`}
+                    onClick={() => onNoteClick(note, `overlay-${note.id}`)}
                     size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
                   />
                 </motion.div>
@@ -516,28 +516,34 @@ export default function App() {
 
 
   // Static notes data for the grey cards (fallback)
-  const stickyNotes = [
+  const stickyNotes: Note[] = [
     {
+      id: 's1',
       quote:
         "Sometimes the bravest thing you can do is speak your truth when no one is listening. But here, someone always is. In this space, your voice matters and your thoughts find their home among others who understand the weight of words unspoken.",
     },
     {
+      id: 's2',
       quote:
         "I never realized how much weight names carry until I learned to speak without one. Freedom tastes like anonymity.",
     },
     {
+      id: 's3',
       quote:
         "The most honest conversations happen when you remove everything except the words themselves. Without the burden of identity, we can express our deepest truths and connect on a level that transcends the superficial layers of who we pretend to be in our daily lives.",
     },
     {
+      id: 's4',
       quote:
         "Every whisper on this wall is a reminder that we're not alone in our thoughts, fears, and dreams.",
     },
     {
+      id: 's5',
       quote:
         "Identity can be a prison. Here, my thoughts fly free without the chains of who I'm supposed to be. In anonymity, I find liberation from expectations, judgments, and the constant pressure to maintain a curated version of myself.",
     },
     {
+      id: 's6',
       quote:
         "In a world of profiles and personas, there's something magical about pure, unfiltered human expression. This is where raw humanity meets digital space, creating connections that feel more authentic than anything we share with our names attached.",
     },
@@ -545,23 +551,23 @@ export default function App() {
 
   // Additional notes for the full view-more overlay (fallback)
   const moreNotes: Note[] = [
-    { quote: "Some days, the loudest battles are the ones no one sees." },
-    { quote: "I write here because the words feel lighter when I set them down." },
-    { quote: "There’s comfort in knowing a stranger might understand." },
-    { quote: "I’m not looking for advice—just a place for this feeling to exist." },
-    { quote: "I keep smiles ready for everyone. I wish I kept one for myself." },
-    { quote: "Healing is slow, and that’s okay. I’m still here." },
-    { quote: "If you’re reading this, I hope today is kinder to you." },
-    { quote: "I’m learning that silence can be a form of strength, not defeat." },
-    { quote: "Maybe honesty is the first step to finding peace." },
-    { quote: "I’m proud of the small things I kept going, even when no one noticed." },
-    { quote: "I forgive myself for not knowing what I didn’t know before." },
-    { quote: "I’m scared of change, but I’m more scared of never trying." },
+    { id: 'm1', quote: "Some days, the loudest battles are the ones no one sees." },
+    { id: 'm2', quote: "I write here because the words feel lighter when I set them down." },
+    { id: 'm3', quote: "There’s comfort in knowing a stranger might understand." },
+    { id: 'm4', quote: "I’m not looking for advice—just a place for this feeling to exist." },
+    { id: 'm5', quote: "I keep smiles ready for everyone. I wish I kept one for myself." },
+    { id: 'm6', quote: "Healing is slow, and that’s okay. I’m still here." },
+    { id: 'm7', quote: "If you’re reading this, I hope today is kinder to you." },
+    { id: 'm8', quote: "I’m learning that silence can be a form of strength, not defeat." },
+    { id: 'm9', quote: "Maybe honesty is the first step to finding peace." },
+    { id: 'm10', quote: "I’m proud of the small things I kept going, even when no one noticed." },
+    { id: 'm11', quote: "I forgive myself for not knowing what I didn’t know before." },
+    { id: 'm12', quote: "I’m scared of change, but I’m more scared of never trying." },
   ];
 
   const [remoteNotes, setRemoteNotes] = useState<DbNote[] | null>(null)
   const allNotes: Note[] = (remoteNotes && remoteNotes.length > 0)
-    ? remoteNotes.map(n => ({ id: (n as any).id as string | undefined, quote: n.quote }))
+    ? remoteNotes.map(n => ({ id: (n as any).id as string, quote: n.quote }))
     : [...stickyNotes, ...moreNotes];
 
   // Parallax scroll effects - Optimized
@@ -868,21 +874,21 @@ export default function App() {
           <div className="mb-8 sm:mb-12 md:mb-20">
             {/* Show first 6 notes (remote if available, else fallback) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
-              <AnimatePresence initial={false}>
+              <AnimatePresence initial={false} mode="popLayout">
                 {allNotes.slice(0, 6).map((note, index) => (
                   <motion.div
-                    key={note.id ?? `grid-${index}`}
+                    key={note.id}
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
+                    exit={{ opacity: 0, scale: 0.98, y: -8 }}
                     transition={{ duration: 0.35, ease: 'easeOut' }}
                     layout
                   >
                     <StaticNoteCard
                       delay={index * 0.1}
                       note={note}
-                      noteId={`grid-${note.id ?? index}`}
-                      onClick={() => handleNoteClick(note, `grid-${note.id ?? index}`)}
+                      noteId={`grid-${note.id}`}
+                      onClick={() => handleNoteClick(note, `grid-${note.id}`)}
                     />
                   </motion.div>
                 ))}
