@@ -145,7 +145,7 @@ function TypingAnimation({ paused = false }: { paused?: boolean }) {
 }
 
 // Static Note Card Component - Completely non-interactive
-type Note = { quote: string };
+type Note = { id?: string; quote: string };
 
 function StaticNoteCard({ delay = 0, note, onClick, noteId, size = 'sm' }: { delay?: number; note: Note; onClick?: () => void; noteId: string; size?: 'sm' | 'lg' }) {
   const ref = useRef(null);
@@ -475,17 +475,26 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
         </div>
   <div className="flex-1 overflow-y-auto pr-2 overscroll-contain no-scrollbar" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
-            {notes.map((note: Note, index: number) => (
-              <div key={index}>
-                <StaticNoteCard
-                  note={note}
-                  delay={0}
-                  noteId={`overlay-${index}`}
-                  onClick={() => onNoteClick(note, `overlay-${index}`)}
-                  size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
-                />
-              </div>
-            ))}
+            <AnimatePresence initial={false}>
+              {notes.map((note: Note, index: number) => (
+                <motion.div
+                  key={note.id ?? `overlay-${index}`}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  layout
+                >
+                  <StaticNoteCard
+                    note={note}
+                    delay={0}
+                    noteId={`overlay-${note.id ?? index}`}
+                    onClick={() => onNoteClick(note, `overlay-${note.id ?? index}`)}
+                    size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       </motion.div>
@@ -552,7 +561,7 @@ export default function App() {
 
   const [remoteNotes, setRemoteNotes] = useState<DbNote[] | null>(null)
   const allNotes: Note[] = (remoteNotes && remoteNotes.length > 0)
-    ? remoteNotes.map(n => ({ quote: n.quote }))
+    ? remoteNotes.map(n => ({ id: (n as any).id as string | undefined, quote: n.quote }))
     : [...stickyNotes, ...moreNotes];
 
   // Parallax scroll effects - Optimized
@@ -859,15 +868,25 @@ export default function App() {
           <div className="mb-8 sm:mb-12 md:mb-20">
             {/* Show first 6 notes (remote if available, else fallback) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
-              {allNotes.slice(0, 6).map((note, index) => (
-                <StaticNoteCard
-                  key={index}
-                  delay={index * 0.1}
-                  note={note}
-                  noteId={`grid-${index}`}
-                  onClick={() => handleNoteClick(note, `grid-${index}`)}
-                />
-              ))}
+              <AnimatePresence initial={false}>
+                {allNotes.slice(0, 6).map((note, index) => (
+                  <motion.div
+                    key={note.id ?? `grid-${index}`}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    layout
+                  >
+                    <StaticNoteCard
+                      delay={index * 0.1}
+                      note={note}
+                      noteId={`grid-${note.id ?? index}`}
+                      onClick={() => handleNoteClick(note, `grid-${note.id ?? index}`)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
 
             {/* View More Button - Always visible; morphs to overlay with pulse/ripple */}
