@@ -315,7 +315,6 @@
   }
 
   img, svg, video, canvas, audio, iframe, embed, object {
-    vertical-align: middle;
     display: block;
   }
 
@@ -2190,6 +2189,7 @@
   }
 
   .line-clamp-4 {
+    line-clamp: 4;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     display: -webkit-box;

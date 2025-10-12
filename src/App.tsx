@@ -32,7 +32,8 @@ function TypingAnimation({ paused = false }: { paused?: boolean }) {
 
   const [currentText, setCurrentText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [phraseIndex, setPhraseIndex] = useState(0);
+  // Start from a random phrase so the initial quote is randomized on each refresh
+  const [phraseIndex, setPhraseIndex] = useState(() => Math.floor(Math.random() * phrases.length));
   const currentPhrase = phrases[phraseIndex];
 
   useEffect(() => {
@@ -152,21 +153,16 @@ function StaticNoteCard({ delay = 0, note, onClick, noteId, size = 'sm' }: { del
     once: true,
     margin: "-100px",
   });
+  const reduce = useReducedMotion();
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{
-        opacity: isInView ? 1 : 0,
-        scale: isInView ? 1 : 0.9,
-      }}
-      transition={{
-        duration: 0.5,
-        delay: delay,
-        ease: "easeOut",
-      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: isInView ? 1 : 0 }}
+      transition={{ duration: reduce ? 0.25 : 0.5, delay, ease: 'easeOut' }}
       className={`relative z-10 ${size === 'lg' ? 'lg:col-span-2' : ''}`}
+      style={{ willChange: 'opacity, transform' }}
     >
       <motion.div
         layoutId={`note-${noteId}`}
@@ -180,6 +176,15 @@ function StaticNoteCard({ delay = 0, note, onClick, noteId, size = 'sm' }: { del
           }
         }}
         aria-label={onClick ? "Open note" : undefined}
+        initial={{ y: reduce ? 0 : 24 }}
+        animate={{
+          y: isInView ? 0 : (reduce ? 0 : 24),
+        }}
+        transition={{
+          duration: reduce ? 0.25 : 0.55,
+          delay: delay,
+          ease: "easeOut",
+        }}
         className={`relative ${size === 'lg' ? 'p-5 sm:p-6 md:p-8' : 'p-3 sm:p-4 md:p-6'} rounded-lg bg-[#2d2e2e] border-l-4 border-[#3a3b3b] shadow-lg transform rotate-1 hover:shadow-2xl transition-shadow duration-300 cursor-pointer`}
       >
         {/* Subtle paper texture */}
