@@ -275,7 +275,7 @@ function NoteWritingInterface({
           stiffness: 300,
           damping: 28,
         }}
-        className="bg-[#2d2e2e] rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-sm sm:max-w-md md:max-w-2xl w-full relative shadow-2xl border border-[#4a4b4b] max-h-[90vh] overflow-y-auto overscroll-contain pointer-events-auto"
+  className="bg-[#2d2e2e] rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-sm sm:max-w-md md:max-w-2xl w-full relative shadow-2xl border border-[#4a4b4b] max-h-[90vh] overflow-y-auto overscroll-contain no-scrollbar pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 sm:mb-6">
@@ -468,7 +468,7 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
             <X size={20} />
           </motion.button>
         </div>
-        <div className="flex-1 overflow-y-auto pr-2 overscroll-contain" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
+  <div className="flex-1 overflow-y-auto pr-2 overscroll-contain no-scrollbar" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
             {notes.map((note: Note, index: number) => (
               <div key={index}>
