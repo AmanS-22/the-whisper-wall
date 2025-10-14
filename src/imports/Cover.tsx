@@ -1,17 +1,38 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 
 function Frame41124522() {
+  const title = 'Whisper Wall';
+  const reduce = useReducedMotion();
+  const chars = title.split('');
+  const baseDelay = 0; // initial delay before first char animates
+  const stagger = 0.11; // 110ms per requirement
   return (
     <div
       className="absolute top-1/2 left-0 right-0 -translate-y-1/2 px-4 sm:px-8 md:px-16 pointer-events-none z-10"
       aria-label="Whisper Wall Title"
     >
-      <h1
+      <motion.h1
         className="font-['Inter:Black',_sans-serif] font-black text-[#f8d254] leading-none tracking-tight text-center whitespace-normal sm:whitespace-nowrap drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] px-4 sm:px-0 mx-auto"
         style={{ lineHeight: 0.9, fontSize: 'clamp(32px,11vw,190px)', maxWidth: '100vw' }}
+        aria-label={title}
       >
-        Whisper Wall
-      </h1>
+        {chars.map((c, i) => (
+          <motion.span
+            key={i + c}
+            aria-hidden="true"
+            className="inline-block"
+            initial={reduce ? false : { opacity: 0, y: 24, filter: 'blur(6px)' }}
+            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: 'blur(0px)' }}
+            transition={{
+              duration: 0.65,
+              ease: 'easeOut',
+              delay: baseDelay + i * stagger,
+            }}
+          >
+            {c === ' ' ? '\u00A0' : c}
+          </motion.span>
+        ))}
+      </motion.h1>
     </div>
   );
 }
@@ -163,14 +184,20 @@ function MarkedBackgroundStickyNotes() {
 
 
 export default function Cover() {
+  // Scroll-based fade out (matches quote fade: hold, then fade between 120px and 500px scroll)
+  const { scrollY } = useScroll();
+  const fadeOpacity = useTransform(scrollY, [0, 120, 500], [1, 1, 0]);
+
   return (
     <div className="bg-[#2d2e2e] relative size-full overflow-hidden" data-name="Cover">
-      <Frame41124522 />
-      
-      {/* Static yellow sticky notes - no interactions */}
-      <MarkedBackgroundStickyNotes />
-      
-      {/* Floating particles for atmosphere - Reduced for performance */}
+      {/* Content that should fade away on scroll */}
+      <motion.div style={{ opacity: fadeOpacity }} className="absolute inset-0">
+        <Frame41124522 />
+        {/* Static yellow sticky notes - no interactions */}
+        <MarkedBackgroundStickyNotes />
+      </motion.div>
+
+      {/* Floating particles for atmosphere - Reduced for performance (optionally could also fade) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {[...Array(5)].map((_, i) => (
           <motion.div

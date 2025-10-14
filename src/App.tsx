@@ -105,42 +105,39 @@ function TypingAnimation({ paused = false }: { paused?: boolean }) {
       setYPos(r.top + r.height + Math.min(50, r.height * 0.18));
       setXPos(r.left + r.width * 0.52);
     };
-    const onScroll = () => {
-      if (rafId !== null) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        recalc();
-      });
-    };
     const onResize = () => {
       recalc();
     };
     // Initial calc
     recalc();
-    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
-      window.removeEventListener('scroll', onScroll as any);
       window.removeEventListener('resize', onResize);
     };
   }, [paused]);
 
+  // Scroll-based fade (phrases fade out as user scrolls down first 500px)
+  const { scrollY } = useScroll();
+  const fadeOpacity = useTransform(scrollY, [0, 120, 500], [1, 1, 0]);
+
   return (
-    <div
+    <motion.div
       className="absolute pointer-events-none z-10"
       style={{
         top: yPos ?? '60%',
         left: (isMobile ? '50%' : (xPos ?? '52%')) as any,
         transform: isMobile ? 'translateX(-50%)' : 'translateX(-10px)',
         maxWidth: isMobile ? '92vw' : undefined,
+        opacity: fadeOpacity,
       }}
+      aria-live="polite"
     >
       <div className="font-['Inter:Semi_Bold',_sans-serif] font-semibold text-[#f8d254] text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-[46px] tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] text-center whitespace-normal break-words">
         <span>{currentText}</span>
         <span className="inline-block w-[1ch] animate-blink">|</span>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -512,6 +509,13 @@ export default function App() {
   const [noteText, setNoteText] = useState("");
   const [showAllNotes, setShowAllNotes] = useState(false);
   const containerRef = useRef(null);
+  // Gate the start of the typing quotes until the title animation has fully finished
+  // Title animation timing: (chars - 1) * 110ms + 650ms ~ 1860ms; add small buffer => 2000ms
+  const [titleAnimationDone, setTitleAnimationDone] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setTitleAnimationDone(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
 
 
@@ -715,7 +719,9 @@ export default function App() {
         </motion.div>
 
         <div className="relative z-10 h-full">
-          <TypingAnimation paused={anyOverlayOpen} />
+          {titleAnimationDone && (
+            <TypingAnimation paused={anyOverlayOpen} />
+          )}
         </div>
 
         {/* Scroll Down Indicator */}
