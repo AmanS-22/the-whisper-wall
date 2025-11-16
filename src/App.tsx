@@ -215,29 +215,54 @@ function StaticNoteCard({ delay = 0, note, onClick, noteId, size = 'sm' }: { del
 // Morph viewer for notes using shared layoutId with the card
 function NoteMorphViewer({ note, layoutId, onClose }: { note: Note | null; layoutId: string | null; onClose: () => void }) {
   if (!note || !layoutId) return null;
+  const quoteContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (quoteContainerRef.current) {
+      quoteContainerRef.current.scrollTop = 0;
+    }
+  }, [note, layoutId]);
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-  className="fixed inset-0 bg-black/80 z-[350]"
-      onClick={onClose}
-      style={{ pointerEvents: 'auto' }}
-    >
-      <motion.div
-        layoutId={layoutId}
-        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(90vw,720px)] overscroll-contain pointer-events-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative p-6 rounded-2xl bg-[#2d2e2e] border-l-4 border-[#3a3b3b] shadow-2xl">
-          <p className="text-[#f8d254] leading-relaxed font-medium text-base sm:text-lg md:text-xl whitespace-pre-line">
-            {note.quote}
-          </p>
-          <button onClick={onClose} className="absolute -top-3 -right-3 px-3 py-1.5 rounded-full bg-[#f8d254] text-[#2d2e2e] font-semibold shadow">Close</button>
-        </div>
-      </motion.div>
-    </motion.div>
+    <AnimatePresence mode="wait">
+      {note && layoutId && (
+        <motion.div
+          key={layoutId}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+          className="fixed inset-0 bg-black/80 z-[350] flex items-center justify-center"
+          onClick={(e) => {
+            // Only close if clicking the backdrop, not the modal
+            if (e.target === e.currentTarget) onClose();
+          }}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <motion.div
+            layoutId={layoutId}
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+            className="relative w-[min(90vw,720px)] overscroll-contain pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div ref={quoteContainerRef} className="relative p-6 rounded-2xl bg-[#2d2e2e] border-l-4 border-[#3a3b3b] shadow-2xl max-w-full overflow-auto">
+              <button
+                onClick={onClose}
+                className="absolute top-3 right-3 px-5 py-2 rounded-full bg-[#f8d254] text-[#2d2e2e] font-semibold shadow z-10"
+                style={{ minWidth: '70px' }}
+              >
+                Close
+              </button>
+              <p className="text-[#f8d254] leading-relaxed font-medium text-base sm:text-lg md:text-xl whitespace-pre-line break-words word-break-break-all max-w-[90vw] overflow-wrap-anywhere pr-20">
+                {note.quote}
+              </p>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -430,8 +455,8 @@ function ViewMoreButton({ onClick, hidden }: { onClick: () => void; hidden?: boo
 
 // All Notes morph overlay (similar window like share button)
 function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScrollTop }: { open: boolean; onClose: () => void; notes: Note[]; onNoteClick: (n: Note, id: string) => void; initialScrollTop: number }) {
-  if (!open) return null;
-  // Virtuoso scroller ref to restore position
+  // Local state to control exit animation
+  const [exiting, setExiting] = useState(false);
   const scrollerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const t = setTimeout(() => {
@@ -439,63 +464,105 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
     }, 0);
     return () => clearTimeout(t);
   }, [initialScrollTop]);
+
+  // Fallback: If exit animation doesn't complete, close after 600ms
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    if (exiting) {
+      timeoutId = setTimeout(() => {
+        setExiting(false);
+        onClose();
+      }, 600);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [exiting, onClose]);
+
+  const showOverlay = open || exiting;
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4"
-      style={{ pointerEvents: 'auto' }}
-    >
-      <motion.div
-        layoutId="all-notes-card"
-        initial={{ borderRadius: 999, backgroundColor: "#3a3b3b", opacity: 0 }}
-        animate={{ borderRadius: 0, backgroundColor: "#2d2e2e", opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-        className="fixed inset-0 bg-[#2d2e2e]/95 p-4 sm:p-6 md:p-8 shadow-2xl border-t border-[#4a4b4b] flex flex-col overscroll-contain"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-[#f8d254] mb-1">All Notes</h2>
-            <p className="text-gray-400 text-sm sm:text-base">Browse every whisper on the wall</p>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={onClose}
-            className="w-8 h-8 sm:w-10 sm:h-10 bg-[#3a3b3b] hover:bg-[#4a4b4b] rounded-full flex items-center justify-center text-[#f8d254] transition-all duration-300"
+    <AnimatePresence mode="wait">
+      {showOverlay && (
+        <motion.div
+          key="all-notes-overlay"
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4"
+          style={{ pointerEvents: 'auto' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !exiting) setExiting(true);
+          }}
+        >
+          <motion.div
+            layoutId="all-notes-card"
+            initial={{ y: 40, opacity: 0, borderRadius: 999, backgroundColor: "#3a3b3b" }}
+            animate={{ y: 0, opacity: 1, borderRadius: 0, backgroundColor: "#2d2e2e" }}
+            exit={{ y: 40, opacity: 0, borderRadius: 999, backgroundColor: "#3a3b3b" }}
+            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+            className="fixed inset-0 bg-[#2d2e2e]/95 p-4 sm:p-6 md:p-8 shadow-2xl border-t border-[#4a4b4b] flex flex-col overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
+            onAnimationComplete={(def) => {
+              if (exiting && def === 'exit') {
+                setExiting(false);
+                onClose();
+              }
+            }}
           >
-            <X size={20} />
-          </motion.button>
-        </div>
-  <div className="flex-1 overflow-y-auto pr-2 overscroll-contain no-scrollbar" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
-            <AnimatePresence initial={false} mode="popLayout">
-              {notes.map((note: Note, index: number) => (
-                <motion.div
-                  key={note.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98, y: -8 }}
-                  transition={{ duration: 0.35, ease: 'easeOut' }}
-                  layout
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-[#f8d254] mb-1">All Notes</h2>
+                <p className="text-gray-400 text-sm sm:text-base">Browse every whisper on the wall</p>
+              </div>
+              <AnimatePresence mode="wait">
+                <motion.button
+                  initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.35, ease: 'easeOut', type: 'spring', stiffness: 320, damping: 32 }}
+                  whileHover={!exiting ? { scale: 1.1 } : undefined}
+                  whileTap={!exiting ? { scale: 0.9 } : undefined}
+                  onClick={() => {
+                    if (!exiting) setExiting(true);
+                  }}
+                  disabled={exiting}
+                  className={`w-8 h-8 sm:w-10 sm:h-10 bg-[#3a3b3b] hover:bg-[#4a4b4b] rounded-full flex items-center justify-center text-[#f8d254] transition-all duration-300${exiting ? ' opacity-60 cursor-not-allowed' : ''}`}
+                  aria-label="Close All Notes"
                 >
-                  <StaticNoteCard
-                    note={note}
-                    delay={0}
-                    noteId={`overlay-${note.id}`}
-                    onClick={() => onNoteClick(note, `overlay-${note.id}`)}
-                    size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+                  <X size={20} />
+                </motion.button>
+              </AnimatePresence>
+            </div>
+            <div className="flex-1 overflow-y-auto pr-2 overscroll-contain no-scrollbar" ref={(el) => { scrollerRef.current = (el as unknown as HTMLElement) || null; }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {notes.map((note: Note, index: number) => (
+                    <motion.div
+                      key={note.id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98, y: -8 }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                      layout
+                    >
+                      <StaticNoteCard
+                        note={note}
+                        delay={0}
+                        noteId={`overlay-${note.id}`}
+                        onClick={() => onNoteClick(note, `overlay-${note.id}`)}
+                        size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -709,6 +776,31 @@ export default function App() {
       ref={containerRef}
       className="relative min-h-screen bg-[#2d2e2e]"
     >
+      {/* Sticky Notes - Always visible, absolutely positioned */}
+      <div className="pointer-events-none z-40">
+        <div className="absolute top-6 left-6 rotate-[-15deg] w-64">
+          <div className="bg-[#f8d254] rounded-lg shadow-lg p-3 text-sm font-medium text-[#222]">
+            Sometimes the bravest thing you can do is speak your truth when no one is...
+          </div>
+        </div>
+        <div className="absolute top-4 right-0 rotate-[12deg] w-64">
+          <div className="bg-[#f8d254] rounded-lg shadow-lg p-3 text-sm font-medium text-[#222]">
+            Freedom tastes like anonymity and feels like truth unbound by identity...
+          </div>
+        </div>
+        <div className="absolute bottom-16 left-32 rotate-[-10deg] w-64">
+          <div className="bg-[#f8d254] rounded-lg shadow-lg p-3 text-sm font-medium text-[#222]">
+            Your voice matters and your thoughts find their home among others...
+          </div>
+        </div>
+        {/* Move this sticky note further down to avoid overlap */}
+        <div className="absolute top-[55%] left-1/2 -translate-x-1/2 rotate-[8deg] w-64">
+          <div className="bg-[#f8d254] rounded-lg shadow-lg p-3 text-sm font-medium text-[#222]">
+            Identity can be a prison. Here, my thoughts fly free without chains...
+          </div>
+        </div>
+      </div>
+
       {/* Hero Section with imported Cover and Parallax */}
       <section className="h-screen relative overflow-hidden">
         <motion.div
@@ -891,10 +983,11 @@ export default function App() {
                     layout
                   >
                     <StaticNoteCard
-                      delay={index * 0.1}
+                      delay={0}
                       note={note}
                       noteId={`grid-${note.id}`}
                       onClick={() => handleNoteClick(note, `grid-${note.id}`)}
+                      size={index % 7 === 0 || index % 11 === 0 ? 'lg' : 'sm'}
                     />
                   </motion.div>
                 ))}
