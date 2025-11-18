@@ -803,11 +803,7 @@ export default function App() {
             Freedom tastes like anonymity and feels like truth unbound by identity...
           </div>
         </div>
-        <div className="absolute bottom-16 left-32 rotate-[-10deg] w-64">
-          <div className="bg-[#f8d254] rounded-lg shadow-lg p-3 text-sm font-medium text-[#222]">
-            Your voice matters and your thoughts find their home among others...
-          </div>
-        </div>
+        
         {/* Move this sticky note further down to avoid overlap */}
         <div className="absolute top-[55%] left-1/2 -translate-x-1/2 rotate-[8deg] w-64">
           <div className="bg-[#f8d254] rounded-lg shadow-lg p-3 text-sm font-medium text-[#222]">
