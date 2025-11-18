@@ -491,7 +491,7 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
           exit={{ opacity: 0, y: -8, scale: 0.98 }}
           transition={{ type: 'spring', stiffness: 320, damping: 32 }}
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4"
-          style={{ pointerEvents: 'auto' }}
+          style={{ pointerEvents: exiting ? 'none' : 'auto', willChange: 'opacity, transform' }}
           onClick={(e) => {
             if (e.target === e.currentTarget && !exiting) setExiting(true);
           }}
@@ -521,7 +521,7 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
                   initial={{ opacity: 0, y: 16, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                  transition={{ duration: 0.35, ease: 'easeOut', type: 'spring', stiffness: 320, damping: 32 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 32 }}
                   whileHover={!exiting ? { scale: 1.1 } : undefined}
                   whileTap={!exiting ? { scale: 0.9 } : undefined}
                   onClick={() => {
@@ -543,8 +543,12 @@ function AllNotesMorphOverlay({ open, onClose, notes, onNoteClick, initialScroll
                       key={note.id}
                       initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.98, y: -8 }}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                        // When the overlay itself is exiting, avoid animating every
+                        // grid child exit — that causes massive layout work and
+                        // makes the close feel janky. Only animate child exits
+                        // when not exiting the overlay.
+                        exit={exiting ? undefined : { opacity: 0, scale: 0.98, y: -8 }}
+                        transition={exiting ? { duration: 0 } : { duration: 0.35, ease: 'easeOut' }}
                       layout
                     >
                       <StaticNoteCard
@@ -572,6 +576,7 @@ export default function App() {
   const [showNoteInterface, setShowNoteInterface] =
     useState(false);
   const [showNoteViewer, setShowNoteViewer] = useState(false);
+  const [noteExiting, setNoteExiting] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteText, setNoteText] = useState("");
   const [showAllNotes, setShowAllNotes] = useState(false);
@@ -752,11 +757,21 @@ export default function App() {
     setSelectedNote(note);
     setActiveNoteLayoutId(`note-${id}`);
     setShowNoteViewer(true);
+    // Clear any previous exiting state when opening a note
+    setNoteExiting(false);
   };
 
   const handleCloseNoteViewer = () => {
-    setShowNoteViewer(false);
-    setSelectedNote(null);
+    // Trigger exit animation first, then actually unmount after a short delay
+    if (noteExiting) return; // already exiting
+    setNoteExiting(true);
+    // match the spring + fallback timing (600ms) used elsewhere
+    const t = setTimeout(() => {
+      setNoteExiting(false);
+      setShowNoteViewer(false);
+      setSelectedNote(null);
+      clearTimeout(t);
+    }, 600);
   };
 
   async function handlePostNote(text: string) {
@@ -1087,7 +1102,7 @@ export default function App() {
 
       {/* Note morph overlay */}
       <AnimatePresence>
-        {showNoteViewer && (
+        {(showNoteViewer || noteExiting) && (
           <NoteMorphViewer
             note={selectedNote}
             layoutId={activeNoteLayoutId}
